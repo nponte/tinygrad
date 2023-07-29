@@ -1,6 +1,8 @@
 import numpy as np
 import time
 
+## TENSORS
+
 from tinygrad.tensor import Tensor
 
 t1 = Tensor([1, 2, 3, 4, 5])
@@ -33,3 +35,39 @@ t6 = t6.relu()
 print (t6.numpy())
 t6 = t6.log_softmax()
 print (t6.numpy())
+
+
+## MODELS
+
+class Linear:
+    def __init__(self, in_features, out_features, bias=True, initialization: str='kaiming_uniform'):
+        self.weight = getattr(Tensor, initialization)(out_features, in_features)
+        self.bias = Tensor.zeros(out_features) if bias else None
+
+    def __call__(self, x):
+        return x.linear(self.weight.transpose(), self.bias)
+
+
+class TinyNet:
+    def __init__(self):
+        self.l1 = Linear(784, 128, bias=False)
+        self.l2 = Linear(128, 10, bias=False)
+
+    def __call__(self, x):
+        x = self.l1(x)
+        x = x.leakyrelu()
+        x = self.l2(x)
+        return x.log_softmax()
+
+net = TinyNet()
+
+Tensor.training = True
+
+def cross_entropy(out, Y):
+    num_classes = out.shape[-1]
+    YY = Y.flatten().astype(np.int32)
+    y = np.zeros((YY.shape[0], num_classes), np.float32)
+    y[range(y.shape[0]),YY] = -1.0*num_classes
+    y = y.reshape(list(Y.shape)+[num_classes])
+    y = Tensor(y)
+    return out.mul(y).mean()
